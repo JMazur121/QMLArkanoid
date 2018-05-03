@@ -47,6 +47,7 @@ function initBricks(){
         }
         currY += brickHeight;
     }
+    gameController.bricksLeft = currentBricksNumber
 }
 
 function clearBricks() {

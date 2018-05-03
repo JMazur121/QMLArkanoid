@@ -14,11 +14,14 @@ Window {
     title: qsTr("Arkanoid")
 
     Rectangle{
-        property int bricksLeft: 0
+        property int bricksLeft
+        property int chancesLeft : 3
+        property real xVelocity : 1.0
+        property real yVelocity : 1.0
 
         function initBall(){
             ball.x = gameController.width/2 - width/2
-            ball.y = gameController.height/2 - height/2
+            ball.y = gameController.height - 3*height
         }
 
         function initPaddle(){
@@ -37,7 +40,43 @@ Window {
             width: gameController.width/40
             height: width
             x:gameController.width/2 - width/2
-            y:gameController.height/2 - height/2
+            y:gameController.height - 3*height
+
+            PropertyAnimation{
+                id: ballDown
+                target: ball
+                property: "y"
+                to: gameController.height - ball.height
+                duration: (gameController.height - ball.height - ball.y) / gameController.yVelocity
+                onStopped: ballUp.start()
+            }
+
+            PropertyAnimation{
+                id: ballUp
+                target: ball
+                property: "y"
+                to: 0
+                duration: ball.y / gameController.yVelocity
+                onStopped: ballDown.start()
+            }
+
+            PropertyAnimation{
+                id: ballRight
+                target: ball
+                property: "x"
+                to: gameController.width - ball.width
+                duration: (gameController.width - ball.width - ball.x) / gameController.xVelocity
+                onStopped: ballLeft.start()
+            }
+
+            PropertyAnimation{
+                id: ballLeft
+                target: ball
+                property: "x"
+                to: 0
+                duration: ball.x / gameController.xVelocity
+                onStopped: ballRight.start()
+            }
         }
 
         Rectangle{
@@ -68,22 +107,48 @@ Window {
             }
         }
 
-        Keys.onLeftPressed: movingLeft.start()
-        Keys.onRightPressed: movingRight.start()
+        Keys.onLeftPressed: {
+            if(gameController.state === "GameOngoing")
+                movingLeft.start()
+        }
+        Keys.onRightPressed: {
+            if(gameController.state === "GameOngoing")
+                movingRight.start()
+        }
         Keys.onSpacePressed: {
-            Bricks.initBricks()
+            if(gameController.state === "GameInitialized"){
+                gameController.state = "GameOngoing"
+                var velocityComponent = Math.random()*0.3 + 0.2
+                var secondComponent = Math.sqrt(0.7*0.7 - velocityComponent*velocityComponent)
+                if (secondComponent > velocityComponent){
+                    gameController.yVelocity = secondComponent
+                    gameController.xVelocity = velocityComponent
+                }
+                else {
+                    gameController.yVelocity = velocityComponent
+                    gameController.xVelocity = secondComponent
+                }
+                console.log("xVel: "+xVelocity+" yVel: "+yVelocity)
+                ballRight.running = true
+                ballUp.running = true
+            }
+        }
+
+        Keys.onEscapePressed: {
+            if(gameController.state === "GameOngoing")
+                gameController.state = "Game_Paused"
+            else if(gameController.state === "Game_Paused")
+                gameController.state = "GameOngoing"
         }
 
         Keys.onReleased: {
             if (event.key === Qt.Key_Left) {
                 movingLeft.stop()
                 event.accepted = true
-                return
             }
             else if (event.key === Qt.Key_Right) {
                 movingRight.stop()
                 event.accepted = true
-                return
             }
         }
         states: [
@@ -92,9 +157,25 @@ Window {
             },
             State {
                 name: "GameOngoing"
+                PropertyChanges {
+                    target: movingLeft;
+                    paused: false
+                }
+                PropertyChanges {
+                    target: movingRight;
+                    paused: false
+                }
             },
             State {
                 name: "Game_Paused"
+                PropertyChanges {
+                    target: movingLeft;
+                    paused: true;
+                }
+                PropertyChanges {
+                    target: movingRight;
+                    paused: true;
+                }
             },
             State {
                 name: "Game_Chance_Lost"
@@ -106,7 +187,11 @@ Window {
                 name: "Game_Lost"
             }
         ]
-        state: "GameInitialized"
+
+        Component.onCompleted: {
+            Bricks.initBricks();
+            gameController.state = "GameInitialized"
+        }
     }
 
     onWidthChanged: {
