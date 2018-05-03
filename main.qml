@@ -1,7 +1,12 @@
 import QtQuick 2.10
 import QtQuick.Window 2.10
 
+import "bricksCreation.js" as Bricks
+
 Window {
+    property int lastWidth: 800
+    property int lastHeight: 600
+
     id:gameWindow
     visible: true
     width: 800
@@ -9,6 +14,8 @@ Window {
     title: qsTr("Arkanoid")
 
     Rectangle{
+        property int bricksLeft: 0
+
         function initBall(){
             ball.x = gameController.width/2 - width/2
             ball.y = gameController.height/2 - height/2
@@ -63,6 +70,9 @@ Window {
 
         Keys.onLeftPressed: movingLeft.start()
         Keys.onRightPressed: movingRight.start()
+        Keys.onSpacePressed: {
+            Bricks.initBricks()
+        }
 
         Keys.onReleased: {
             if (event.key === Qt.Key_Left) {
@@ -76,5 +86,46 @@ Window {
                 return
             }
         }
+        states: [
+            State {
+                name: "GameInitialized"
+            },
+            State {
+                name: "GameOngoing"
+            },
+            State {
+                name: "Game_Paused"
+            },
+            State {
+                name: "Game_Chance_Lost"
+            },
+            State {
+                name: "Game_Won"
+            },
+            State {
+                name: "Game_Lost"
+            }
+        ]
+        state: "GameInitialized"
+    }
+
+    onWidthChanged: {
+        var ratio = gameController.width / lastWidth
+        lastWidth = gameController.width
+        var children = gameController.data
+        for(var item = 0; item< children.length; ++item){
+                    if(children[item].objectName === "brick")
+                        children[item].x = children[item].x * ratio
+                }
+    }
+
+    onHeightChanged: {
+        var ratio = gameController.height / lastHeight
+        lastHeight = gameController.height
+        var children = gameController.data
+        for(var item = 0; item< children.length; ++item){
+                    if(children[item].objectName === "brick")
+                        children[item].y = children[item].y * ratio
+                }
     }
 }

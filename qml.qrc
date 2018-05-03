@@ -3,5 +3,6 @@
         <file>main.qml</file>
         <file>Brick.qml</file>
         <file>Ball.qml</file>
+        <file>bricksCreation.js</file>
     </qresource>
 </RCC>
