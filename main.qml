@@ -31,10 +31,58 @@ Window {
             paddle.y = gameController.height - paddle.height
         }
 
-        function paddleCollision(){
-            var deltaX = ball.centerX - Math.max(paddle.x,Math.min(ball.centerX,paddle.x+paddle.width))
-            var deltay = ball.centerY - Math.max(paddle.y,Math.min(ball.centerY,paddle.y+paddle.height))
+        function isColliding(c_item){
+            var deltaX = ball.centerX - Math.max(c_item.x,Math.min(ball.centerX,c_item.x+c_item.width))
+            var deltay = ball.centerY - Math.max(c_item.y,Math.min(ball.centerY,c_item.y+c_item.height))
             return (deltaX * deltaX + deltay * deltay) < (ball.radius * ball.radius);
+        }
+
+        function bricksCollision(){
+            var children = gameController.data;
+            var deletedBricks = 0;
+            var moveRight = rightMove;
+            var moveUp = upMove;
+            for (var item=0; item<children.length;++item){
+                if(children[item].objectName === "brick")
+                    if(isColliding(children[item])){
+                        if(ball.centerX <= children[item].x){//hit from left
+                            moveRight = !rightMove;
+                        }
+                        else if(ball.centerX >= (children[item].x + children[item].width)){//hit from right
+                            moveRight = !rightMove;
+                        }
+                        else if(ball.centerY < children[item].y){//hit from above
+                            moveUp = !upMove;
+                        }
+                        else {//hit from bottom
+                            moveUp = !upMove;
+                        }
+                        ++deletedBricks;
+                        children[item].destroy();
+                    }
+            }
+            if(deletedBricks > 0) {
+                ballDown.stop();
+                ballUp.stop();
+                ballLeft.stop();
+                ballRight.stop();
+                if(moveRight){
+                    gameController.rightMove = true;
+                    ballRight.start();
+                }
+                else {
+                    gameController.rightMove = false;
+                    ballLeft.start();
+                }
+                if(moveUp){
+                    gameController.upMove = true;
+                    ballUp.start();
+                }
+                else {
+                    gameController.upMove = false;
+                    ballDown.start();
+                }
+            }
         }
 
         id:gameController
@@ -135,14 +183,16 @@ Window {
 
         Timer{
             id:timer
-            interval: 20
+            interval: 30
             repeat: true
             onTriggered: {
-                if(gameController.paddleCollision()) {
+                if(gameController.isColliding(paddle)) {
                     ballDown.stop()
                     gameController.upMove = true
                     ballUp.start()
                 }
+                else
+                    gameController.bricksCollision();
             }
         }
 
@@ -158,7 +208,6 @@ Window {
             if(gameController.state === "GameInitialized"){
                 chancesLeft = 3
                 gameController.state = "GameOngoing"
-                console.log("ch1 "+chancesLeft)
                 var velocityComponent = Math.random()*0.3 + 0.2
                 var secondComponent = Math.sqrt(0.7*0.7 - velocityComponent*velocityComponent)
                 if (secondComponent > velocityComponent){
