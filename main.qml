@@ -15,18 +15,26 @@ Window {
 
     Rectangle{
         property int bricksLeft
-        property int chancesLeft : 3
+        property int chancesLeft
         property real xVelocity : 1.0
         property real yVelocity : 1.0
+        property bool upMove
+        property bool rightMove
 
         function initBall(){
-            ball.x = gameController.width/2 - width/2
-            ball.y = gameController.height - 3*height
+            ball.x = gameController.width/2 - ball.width/2
+            ball.y = gameController.height - 3*ball.height
         }
 
         function initPaddle(){
             paddle.x = (gameController.width - paddle.width)/2
             paddle.y = gameController.height - paddle.height
+        }
+
+        function paddleCollision(){
+            var deltaX = ball.centerX - Math.max(paddle.x,Math.min(ball.centerX,paddle.x+paddle.width))
+            var deltay = ball.centerY - Math.max(paddle.y,Math.min(ball.centerY,paddle.y+paddle.height))
+            return (deltaX * deltaX + deltay * deltay) < (ball.radius * ball.radius);
         }
 
         id:gameController
@@ -37,7 +45,7 @@ Window {
 
         Ball{
             id:ball
-            width: gameController.width/40
+            width: gameController.width/35
             height: width
             x:gameController.width/2 - width/2
             y:gameController.height - 3*height
@@ -48,7 +56,10 @@ Window {
                 property: "y"
                 to: gameController.height - ball.height
                 duration: (gameController.height - ball.height - ball.y) / gameController.yVelocity
-                onStopped: ballUp.start()
+                onStopped: {
+                    if(gameController.state !== "Game_Paused" && (ball.y >= gameController.height - ball.height))
+                        gameController.state = "Game_Chance_Lost"
+                }
             }
 
             PropertyAnimation{
@@ -57,7 +68,12 @@ Window {
                 property: "y"
                 to: 0
                 duration: ball.y / gameController.yVelocity
-                onStopped: ballDown.start()
+                onStopped: {
+                    if (ball.y <= 0){
+                        ballDown.start();
+                        gameController.upMove = false
+                    }
+                }
             }
 
             PropertyAnimation{
@@ -66,7 +82,12 @@ Window {
                 property: "x"
                 to: gameController.width - ball.width
                 duration: (gameController.width - ball.width - ball.x) / gameController.xVelocity
-                onStopped: ballLeft.start()
+                onStopped: {
+                    if (ball.x >= gameController.width - ball.width){
+                        ballLeft.start();
+                        gameController.rightMove = false
+                    }
+                }
             }
 
             PropertyAnimation{
@@ -75,7 +96,12 @@ Window {
                 property: "x"
                 to: 0
                 duration: ball.x / gameController.xVelocity
-                onStopped: ballRight.start()
+                onStopped: {
+                    if (ball.x <= 0){
+                        ballRight.start();
+                        gameController.rightMove = true
+                    }
+                }
             }
         }
 
@@ -107,6 +133,19 @@ Window {
             }
         }
 
+        Timer{
+            id:timer
+            interval: 20
+            repeat: true
+            onTriggered: {
+                if(gameController.paddleCollision()) {
+                    ballDown.stop()
+                    gameController.upMove = true
+                    ballUp.start()
+                }
+            }
+        }
+
         Keys.onLeftPressed: {
             if(gameController.state === "GameOngoing")
                 movingLeft.start()
@@ -117,7 +156,9 @@ Window {
         }
         Keys.onSpacePressed: {
             if(gameController.state === "GameInitialized"){
+                chancesLeft = 3
                 gameController.state = "GameOngoing"
+                console.log("ch1 "+chancesLeft)
                 var velocityComponent = Math.random()*0.3 + 0.2
                 var secondComponent = Math.sqrt(0.7*0.7 - velocityComponent*velocityComponent)
                 if (secondComponent > velocityComponent){
@@ -128,17 +169,31 @@ Window {
                     gameController.yVelocity = velocityComponent
                     gameController.xVelocity = secondComponent
                 }
-                console.log("xVel: "+xVelocity+" yVel: "+yVelocity)
-                ballRight.running = true
-                ballUp.running = true
+                gameController.rightMove = true
+                gameController.upMove = true
+                ballRight.start()
+                ballUp.start()
+            }
+            else if(gameController.state === "Game_Chance_Lost") {
+                initBall();
+                initPaddle();
+                gameController.state = "GameOngoing"
+                ballUp.start()
+                ballRight.start()
+                gameController.rightMove = true
+                gameController.upMove = true
             }
         }
 
         Keys.onEscapePressed: {
-            if(gameController.state === "GameOngoing")
+            if(gameController.state === "GameOngoing"){
                 gameController.state = "Game_Paused"
-            else if(gameController.state === "Game_Paused")
+            }
+            else if(gameController.state === "Game_Paused"){
                 gameController.state = "GameOngoing"
+                upMove ? ballUp.start() : ballDown.start()
+                rightMove ? ballRight.start() : ballLeft.start()
+            }
         }
 
         Keys.onReleased: {
@@ -154,31 +209,103 @@ Window {
         states: [
             State {
                 name: "GameInitialized"
+                PropertyChanges {
+                    target: ballUp;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballDown;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballLeft;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballRight;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: timer
+                    running: false
+                }
             },
             State {
                 name: "GameOngoing"
                 PropertyChanges {
-                    target: movingLeft;
-                    paused: false
+                    target: ballUp;
+                    running: false;
                 }
                 PropertyChanges {
-                    target: movingRight;
-                    paused: false
+                    target: ballDown;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballLeft;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballRight;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: timer
+                    running: true
                 }
             },
             State {
                 name: "Game_Paused"
                 PropertyChanges {
                     target: movingLeft;
-                    paused: true;
+                    running: false;
                 }
                 PropertyChanges {
                     target: movingRight;
-                    paused: true;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballUp;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballDown;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballLeft;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballRight;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: timer
+                    running: false
                 }
             },
             State {
                 name: "Game_Chance_Lost"
+                PropertyChanges {
+                    target: ballUp;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballDown;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballLeft;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballRight;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: timer
+                    running: false
+                }
             },
             State {
                 name: "Game_Won"
