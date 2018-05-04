@@ -21,16 +21,6 @@ Window {
         property bool upMove
         property bool rightMove
 
-        function initBall(){
-            ball.x = gameController.width/2 - ball.width/2
-            ball.y = gameController.height - 3*ball.height
-        }
-
-        function initPaddle(){
-            paddle.x = (gameController.width - paddle.width)/2
-            paddle.y = gameController.height - paddle.height
-        }
-
         function isColliding(c_item){
             var deltaX = ball.centerX - Math.max(c_item.x,Math.min(ball.centerX,c_item.x+c_item.width))
             var deltay = ball.centerY - Math.max(c_item.y,Math.min(ball.centerY,c_item.y+c_item.height))
@@ -66,6 +56,12 @@ Window {
                 ballUp.stop();
                 ballLeft.stop();
                 ballRight.stop();
+                gameController.bricksLeft -= deletedBricks;
+                if(gameController.bricksLeft == 0){
+                    gameController.state = "Game_Won"
+                    return;
+                }
+
                 if(moveRight){
                     gameController.rightMove = true;
                     ballRight.start();
@@ -93,7 +89,7 @@ Window {
 
         Ball{
             id:ball
-            width: gameController.width/35
+            width: gameController.width/37
             height: width
             x:gameController.width/2 - width/2
             y:gameController.height - 3*height
@@ -105,8 +101,10 @@ Window {
                 to: gameController.height - ball.height
                 duration: (gameController.height - ball.height - ball.y) / gameController.yVelocity
                 onStopped: {
-                    if(gameController.state !== "Game_Paused" && (ball.y >= gameController.height - ball.height))
-                        gameController.state = "Game_Chance_Lost"
+                    if(gameController.state !== "Game_Paused" && (ball.y >= gameController.height - ball.height)){
+                        --gameController.chancesLeft;
+                        gameController.state = (gameController.chancesLeft > 0) ? "Game_Chance_Lost" : "Game_Lost"
+                    }
                 }
             }
 
@@ -183,7 +181,7 @@ Window {
 
         Timer{
             id:timer
-            interval: 30
+            interval: 20
             repeat: true
             onTriggered: {
                 if(gameController.isColliding(paddle)) {
@@ -209,7 +207,7 @@ Window {
                 chancesLeft = 3
                 gameController.state = "GameOngoing"
                 var velocityComponent = Math.random()*0.3 + 0.2
-                var secondComponent = Math.sqrt(0.7*0.7 - velocityComponent*velocityComponent)
+                var secondComponent = Math.sqrt(0.65*0.65 - velocityComponent*velocityComponent)
                 if (secondComponent > velocityComponent){
                     gameController.yVelocity = secondComponent
                     gameController.xVelocity = velocityComponent
@@ -224,13 +222,16 @@ Window {
                 ballUp.start()
             }
             else if(gameController.state === "Game_Chance_Lost") {
-                initBall();
-                initPaddle();
                 gameController.state = "GameOngoing"
                 ballUp.start()
                 ballRight.start()
                 gameController.rightMove = true
                 gameController.upMove = true
+            }
+            else if(gameController.state === "Game_Lost" || gameController.state === "Game_Won"){
+                Bricks.clearBricks();
+                Bricks.initBricks();
+                gameController.state = "GameInitialized"
             }
         }
 
@@ -277,6 +278,16 @@ Window {
                 PropertyChanges {
                     target: timer
                     running: false
+                }
+                PropertyChanges {
+                    target: ball
+                    x: gameController.width/2 - ball.width/2
+                    y: gameController.height - 3*ball.height
+                }
+                PropertyChanges {
+                    target: paddle
+                    x : (gameController.width - paddle.width)/2
+                    y : gameController.height - paddle.height
                 }
             },
             State {
@@ -355,12 +366,62 @@ Window {
                     target: timer
                     running: false
                 }
+                PropertyChanges {
+                    target: ball
+                    x: gameController.width/2 - ball.width/2
+                    y: gameController.height - 3*ball.height
+                }
+                PropertyChanges {
+                    target: paddle
+                    x : (gameController.width - paddle.width)/2
+                    y : gameController.height - paddle.height
+                }
             },
             State {
                 name: "Game_Won"
+                PropertyChanges {
+                    target: ballUp;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballDown;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballLeft;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballRight;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: timer
+                    running: false
+                }
             },
             State {
                 name: "Game_Lost"
+                PropertyChanges {
+                    target: ballUp;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballDown;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballLeft;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: ballRight;
+                    running: false;
+                }
+                PropertyChanges {
+                    target: timer
+                    running: false
+                }
             }
         ]
 
